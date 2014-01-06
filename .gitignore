@@ -1,0 +1,6 @@
+/Lst/
+/Obj/
+*.dep
+*.plg
+*.uvgui*
+*.uvopt
