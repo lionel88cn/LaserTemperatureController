@@ -350,7 +350,7 @@ void ProcessSensors(void)
 uint16_t setTempearture()
 {
 	static uint16_t posArray[5];
-	static int16_t scaledTmp=2500,curPos,pos; 
+	static int16_t scaledTmp=2500,curPos,pos;
 	if (process_sensor)
 	{
 		posArray[4]=posArray[3];

@@ -185,6 +185,12 @@ void TIM2_IRQHandler(void)
 	TIM_ClearITPendingBit(TIM2 , TIM_FLAG_Update);
 }
 
+void TIM3_IRQHandler(void)
+{
+	pidISR();
+	TIM_ClearITPendingBit(TIM3 , TIM_FLAG_Update);
+}
+
 /**
   * @brief  This function handles PPP interrupt request.
   * @param  None

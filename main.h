@@ -43,6 +43,7 @@ void setFrige(uint8_t onoff);
 void setHeater(uint8_t num,uint8_t onoff);
 void heaterISR(void);
 void frigeISR(void);
+void pidISR(void);
 void toggleHeater(void);
 void changeLED(void);
 void toggleFrige(void);

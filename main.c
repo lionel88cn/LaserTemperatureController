@@ -78,6 +78,7 @@ static volatile uint32_t TimingDelay;
 void  		RCC_Configuration(void);
 void  		Init_GPIOs (void);
 void  		Init_Timer2 (void);
+void			Init_Timer3 (void);
 void 			Init_ADC (void);
 void			Init_DMA (void);
 void  		clearUserButtonFlag(void);
@@ -97,7 +98,6 @@ uint16_t  getTmp(void);
                                   
 int main(void)
 {
-	int32_t 	PID=0,PID_last=0,e=0,e1=0,e2=0;
 	uint16_t Message[7]; 
   /* Configure Clocks for Application need */
   RCC_Configuration();
@@ -129,55 +129,26 @@ int main(void)
 	 /* Display Welcome message */ 
   //LCD_GLASS_ScrollSentence("**  LASER TEMP CONTROLLER  **",1,SCROLL_SPEED*2);
 	LCD_GLASS_Clear();
-	
 	heaterLevel=0;
 	frigeLevel=100;
-	PID=3000;
-	targetTmp=250;
+	targetTmp=getTmp();
+	frigeLevel=100;
+	Init_Timer3();
 	while(1)
 	{
-		if(flag_UserButton)
+		if(TSL_user_Action()==TSL_STATUS_OK)
 		{
-			if(flag_Mode) flag_Mode=0;
-			else flag_Mode=1;
-			clearUserButtonFlag();
-		}
-		if(flag_Mode)
-		{
-			/* PID=PID_last + Kp (e-e1) + Ki (e) + Kd (e- 2*e1+e2) */
-			frigeLevel=100;
-			currentTmp=getTmp();
-			if(currentTmp>999) currentTmp=999;
-			PID_last=PID;
-			e2=e1;
-			e1=e;
-			e=currentTmp-targetTmp;
-			PID=PID_last + Kp*(e-e1) + Ki*(e) + Kd*(e-2*e1+e2);
-			if(PID>=4000) PID=3999;
-			if(PID<0) PID=0;
-			heaterLevel=PID*100/4000;
-			convert_into_char(currentTmp*100,Message);
+			targetTmp=setTempearture();
+			//convert_into_char(targetTmp+currentTmp*1000,Message);
+			Message[0]=currentTmp/100+'0';
+			Message[1]=(currentTmp%100)/10+'0';
+			Message[2]=currentTmp%10+'0';
+			Message[3]=targetTmp/100+'0';
+			Message[4]=(targetTmp%100)/10+'0';
+			Message[5]=targetTmp%10+'0';
 			Message[1]|=DOT;
-			Message[3] = '°' ;
-			Message[4] = 'C' ;
-			Message[5]='R';
+			Message[4]|=DOT;
 			LCD_GLASS_DisplayStrDeci(Message);
-			Delay(400);
-		}
-		else
-		{
-			frigeLevel=0;
-			heaterLevel=0;
-			if(TSL_user_Action()==TSL_STATUS_OK)
-			{
-				targetTmp=setTempearture();
-				convert_into_char(targetTmp*100,Message);
-				Message[1]|=DOT;
-				Message[3] = '°' ;
-				Message[4] = 'C' ;
-				Message[5]='S';
-				LCD_GLASS_DisplayStrDeci(Message);
-			}
 		}
 	}
 }
@@ -336,6 +307,7 @@ void Init_Timer2(void)
 	NVIC_InitTypeDef NVIC_InitStructure;	
   TIM_DeInit(TIM2);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+	/* 500Hz */
   TIM_TimeBaseStructure.TIM_Period=20;
   TIM_TimeBaseStructure.TIM_Prescaler=1600;
 	TIM_TimeBaseStructure.TIM_ClockDivision=1;
@@ -345,6 +317,28 @@ void Init_Timer2(void)
   TIM_Cmd(TIM2, ENABLE); 		
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
 	NVIC_InitStructure.NVIC_IRQChannel = TIM2_IRQn;
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x0F;
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x0F;
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure);
+}
+
+void Init_Timer3(void)
+{
+	TIM_TimeBaseInitTypeDef TIM_TimeBaseStructure;
+	NVIC_InitTypeDef NVIC_InitStructure;	
+  TIM_DeInit(TIM3);
+  RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE);
+	/* 20Hz */
+  TIM_TimeBaseStructure.TIM_Period=500;
+  TIM_TimeBaseStructure.TIM_Prescaler=1600;
+	TIM_TimeBaseStructure.TIM_ClockDivision=1;
+  TIM_TimeBaseStructure.TIM_CounterMode=TIM_CounterMode_Up;
+  TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);
+  TIM_ITConfig(TIM3,TIM_IT_Update,ENABLE);
+  TIM_Cmd(TIM3, ENABLE); 		
+	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_0);
+	NVIC_InitStructure.NVIC_IRQChannel = TIM3_IRQn;
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x0F;
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x0F;
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
@@ -386,6 +380,22 @@ void frigeISR(void)
 	else setFrige(0);
 	if (timeStep==FRIGE_PERIOD-1) timeStep=0;
 	else timeStep++;
+}
+
+void pidISR(void)
+{
+	static int32_t PID=0,PID_last=0,e=0,e1=0,e2=0;
+	currentTmp=getTmp();
+	if(currentTmp>999) currentTmp=999;
+	PID_last=PID;
+	e2=e1;
+	e1=e;
+	e=currentTmp-targetTmp;
+	/* PID=PID_last + Kp (e-e1) + Ki (e) + Kd (e- 2*e1+e2) */
+	PID=PID_last + Kp*(e-e1) + Ki*(e) + Kd*(e-2*e1+e2);
+	if(PID>=4000) PID=3999;
+	if(PID<0) PID=0;
+	heaterLevel=PID*100/4000;
 }
 
 void Init_ADC(void) 
