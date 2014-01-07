@@ -20,15 +20,7 @@
  
 /* Includes ------------------------------------------------------------------*/
 
-#include "stm32l1xx.h"
 #include "main.h"
-#include "stdio.h"
-#include "discover_board.h"
-#include "discover_functions.h"
-#include "stm32l_discovery_lcd.h"
-#include "stm32l1xx_tim.h"
-#include "stm32l1xx_adc.h"
-#include "stm32l1xx_dma.h"
 #include "LUT.h"
 
 
@@ -50,8 +42,8 @@
 #define ADC_CONV_BUFF_SIZE		20
 #define HEATER_PERIOD					50
 #define FRIGE_PERIOD					100
-#define Kp										-100
-#define	Ki										-2
+#define Kp										-150
+#define	Ki										-1
 #define Kd									  200
 
 /* Private macro -------------------------------------------------------------*/
@@ -136,19 +128,37 @@ int main(void)
 	Init_Timer3();
 	while(1)
 	{
-		if(TSL_user_Action()==TSL_STATUS_OK)
+		if(flag_UserButton)
 		{
-			targetTmp=setTempearture();
-			//convert_into_char(targetTmp+currentTmp*1000,Message);
+			if(flag_Mode) flag_Mode=0;
+			else flag_Mode=1;
+			clearUserButtonFlag();
+		}
+		if(flag_Mode)
+		{
 			Message[0]=currentTmp/100+'0';
 			Message[1]=(currentTmp%100)/10+'0';
 			Message[2]=currentTmp%10+'0';
-			Message[3]=targetTmp/100+'0';
-			Message[4]=(targetTmp%100)/10+'0';
-			Message[5]=targetTmp%10+'0';
 			Message[1]|=DOT;
-			Message[4]|=DOT;
+			Message[3]='°' ;
+			Message[4]='C' ;
+			Message[5]='M';
 			LCD_GLASS_DisplayStrDeci(Message);
+		}
+		else
+		{
+			if(TSL_user_Action()==TSL_STATUS_OK)
+			{
+				targetTmp=setTempearture();
+				Message[0]=targetTmp/100+'0';
+				Message[1]=(targetTmp%100)/10+'0';
+				Message[2]=targetTmp%10+'0';
+				Message[1]|=DOT;
+				Message[3]='°' ;
+				Message[4]='C' ;
+				Message[5]='S';
+				LCD_GLASS_DisplayStrDeci(Message);
+			}
 		}
 	}
 }

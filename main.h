@@ -29,7 +29,8 @@
 #include "stm32l_discovery_lcd.h"
 #include "tsl.h"
 #include "tsl_user.h"
-#include <stdio.h>
+#include "stdio.h"
+
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
